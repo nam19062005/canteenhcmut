@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <title>Nhân viên Căn tin - Quản lý Đơn hàng</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+</head>
+<body class="bg-gray-100 p-8">
+
+    <div class="max-w-6xl mx-auto">
+        <div class="flex justify-between items-center mb-6">
+            <h1 class="text-3xl font-bold text-gray-800">Tiếp nhận & Giao Đơn hàng</h1>
+            <button onclick="loadOrders()" class="bg-blue-100 text-blue-700 px-4 py-2 rounded font-semibold hover:bg-blue-200 transition">
+                ↻ Làm mới trang
+            </button>
+        </div>
+
+        <div class="bg-white rounded-lg shadow-md overflow-hidden">
+            <table class="w-full text-left border-collapse">
+                <thead>
+                    <tr class="bg-gray-800 text-white">
+                        <th class="p-4 border-b">Mã Đơn (Code)</th>
+                        <th class="p-4 border-b">Thời gian</th>
+                        <th class="p-4 border-b">Chi tiết món</th>
+                        <th class="p-4 border-b">Tổng tiền</th>
+                        <th class="p-4 border-b">Trạng thái</th>
+                        <th class="p-4 border-b text-center">Thao tác</th>
+                    </tr>
+                </thead>
+                <tbody id="orders-table">
+                    </tbody>
+            </table>
+        </div>
+    </div>
+
+    <script>
+        // 1. Tải danh sách đơn hàng
+        async function loadOrders() {
+            const res = await fetch('/api/staff/orders');
+            const orders = await res.json();
+            const tbody = document.getElementById('orders-table');
+            
+            if (orders.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="6" class="p-6 text-center text-gray-500">Chưa có đơn hàng nào.</td></tr>';
+                return;
+            }
+
+            tbody.innerHTML = orders.map(o => {
+                const itemsHtml = o.items.map(i => `<li class="text-sm">• ${i.name} (x${i.quantity})</li>`).join('');
+                
+                // Phân loại trạng thái
+                const isPending = o.status === 'Pending';
+                const isCancelled = o.status === 'Cancelled';
+                
+                let statusBadge = '';
+                if (isPending) {
+                    statusBadge = `<span class="bg-yellow-100 text-yellow-800 px-2 py-1 rounded text-sm font-bold">Chờ giao</span>`;
+                } else if (isCancelled) {
+                    statusBadge = `<span class="bg-red-100 text-red-800 px-2 py-1 rounded text-sm font-bold">Đã hủy</span>`;
+                } else {
+                    statusBadge = `<span class="bg-green-100 text-green-800 px-2 py-1 rounded text-sm font-bold">Đã xong</span>`;
+                }
+                
+                // Nút thao tác
+                let actionButton = '';
+                if (isPending) {
+                    actionButton = `
+                        <div class="flex flex-col space-y-2">
+                            <button onclick="completeOrder(${o.id})" class="bg-blue-600 text-white px-3 py-2 rounded hover:bg-blue-700 w-full font-semibold shadow text-sm transition">Xác nhận Giao</button>
+                            <button onclick="cancelOrder(${o.id})" class="bg-red-500 text-white px-3 py-2 rounded hover:bg-red-600 w-full font-semibold shadow text-sm transition">Hủy đơn</button>
+                        </div>
+                    `;
+                } else {
+                    actionButton = `<span class="text-gray-400 text-sm font-medium">${isCancelled ? 'Đơn bị hủy' : 'Hoàn thành'}</span>`;
+                }
+
+                // Làm mờ đi nếu đơn đã hủy hoặc đã hoàn thành
+                const rowClass = isPending ? 'bg-white' : 'bg-gray-50 opacity-75';
+
+                return `
+                    <tr class="border-b hover:bg-gray-100 transition ${rowClass}">
+                        <td class="p-4 font-bold text-lg text-blue-700">${o.order_code}</td>
+                        <td class="p-4 text-gray-600 text-sm">${o.created_at}</td>
+                        <td class="p-4"><ul>${itemsHtml}</ul></td>
+                        <td class="p-4 font-bold text-red-600">${o.total_price.toLocaleString()}đ</td>
+                        <td class="p-4">${statusBadge}</td>
+                        <td class="p-4 text-center align-middle">${actionButton}</td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        // 2. Xác nhận giao hàng
+        async function completeOrder(orderId) {
+            if (!confirm("Xác nhận đã giao đồ cho khách?")) return;
+
+            const res = await fetch(`/api/staff/order/${orderId}/complete`, { method: 'POST' });
+            if (res.ok) loadOrders();
+            else alert("Đã xảy ra lỗi khi cập nhật!");
+        }
+
+        // 3. Hủy đơn hàng (MỚI)
+        async function cancelOrder(orderId) {
+            if (!confirm("Bạn có chắc chắn muốn hủy đơn hàng này? Các món ăn sẽ được hoàn lại vào kho.")) return;
+
+            const res = await fetch(`/api/staff/order/${orderId}/cancel`, { method: 'POST' });
+            if (res.ok) {
+                loadOrders(); // Tải lại bảng để thấy trạng thái "Đã hủy"
+            } else {
+                const data = await res.json();
+                alert("Lỗi: " + (data.error || "Đã xảy ra lỗi khi hủy đơn!"));
+            }
+        }
+
+        // Khởi chạy khi mở trang và tự động làm mới mỗi 10 giây
+        loadOrders();
+        setInterval(loadOrders, 10000); 
+    </script>
+</body>
+</html>

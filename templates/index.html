@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <title>Căn tin HCMUT</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+</head>
+<body class="bg-gray-50 p-6">
+    <div class="max-w-6xl mx-auto flex gap-6">
+        <div class="flex-1 bg-white p-6 rounded-lg shadow-md">
+            
+            <div class="flex justify-between items-end mb-6 border-b pb-4">
+                <div>
+                    <h1 class="text-3xl font-bold text-blue-700" id="canteen-title">Thực đơn Căn tin B4</h1>
+                    <p class="text-gray-500 mt-1">Vui lòng chọn căn tin bạn muốn đặt món:</p>
+                </div>
+                <div id="canteen-tabs" class="flex space-x-2">
+                    </div>
+            </div>
+
+            <div class="flex flex-col md:flex-row gap-4 mb-6 bg-blue-50 p-4 rounded-lg">
+                <div class="flex-1">
+                    <input type="text" id="search-input" placeholder="🔍 Gõ để tìm tên món ăn... (VD: Cơm, Bún, Trà...)" 
+                           class="w-full border border-gray-300 p-2 rounded-lg focus:outline-none focus:border-blue-500 transition shadow-sm"
+                           onkeyup="loadMenu()">
+                </div>
+                <div class="w-full md:w-1/3">
+                    <select id="category-filter" class="w-full border border-gray-300 p-2 rounded-lg focus:outline-none focus:border-blue-500 shadow-sm" onchange="loadMenu()">
+                        <option value="">Tất cả danh mục</option>
+                        </select>
+                </div>
+            </div>
+
+            <div id="menu-container" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                </div>
+        </div>
+
+        <div class="w-80 bg-white p-6 rounded-lg shadow-md h-fit sticky top-6">
+            <h2 class="text-xl font-bold mb-4 border-b pb-2">Giỏ hàng</h2>
+            <div id="cart-items" class="space-y-3 mb-4 min-h-[100px]">
+                <p class="text-gray-400 italic text-center py-4">Giỏ hàng đang trống</p>
+            </div>
+            <div class="flex justify-between font-bold text-lg border-t pt-3">
+                <span>Tổng cộng:</span>
+                <span id="total-price" class="text-red-600">0đ</span>
+            </div>
+            <button onclick="checkout()" class="w-full bg-blue-600 text-white py-3 rounded-lg mt-4 font-bold hover:bg-blue-700 transition">
+                Xác nhận đặt món
+            </button>
+        </div>
+    </div>
+
+    <script>
+        let cart = [];
+        let currentCanteenId = 1;
+
+        // --- CÁC HÀM TẢI DỮ LIỆU BAN ĐẦU ---
+        async function loadCanteens() {
+            const res = await fetch('/api/admin/form-data'); 
+            const data = await res.json();
+            renderCanteenTabs(data.canteens);
+        }
+
+        async function loadCategoriesForCustomer() {
+            const res = await fetch('/api/admin/form-data');
+            const data = await res.json();
+            const filterDropdown = document.getElementById('category-filter');
+            data.categories.forEach(c => {
+                filterDropdown.innerHTML += `<option value="${c.id}">${c.name}</option>`;
+            });
+        }
+
+        function renderCanteenTabs(canteens) {
+            const tabsContainer = document.getElementById('canteen-tabs');
+            tabsContainer.innerHTML = canteens.map(c => {
+                const isActive = c.id === currentCanteenId;
+                const activeClass = isActive 
+                    ? "bg-blue-600 text-white shadow-md cursor-default" 
+                    : "bg-gray-100 text-gray-600 hover:bg-gray-200 cursor-pointer";
+                
+                return `
+                    <button onclick="switchCanteen(${c.id}, '${c.name}')" 
+                            class="px-4 py-2 rounded-lg font-bold transition duration-200 ${activeClass}">
+                        ${c.name}
+                    </button>
+                `;
+            }).join('');
+        }
+
+        function switchCanteen(id, name) {
+            if (currentCanteenId === id) return; 
+            
+            if (cart.length > 0) {
+                const confirmSwitch = confirm("Đổi căn tin sẽ làm trống giỏ hàng hiện tại của bạn. Bạn có chắc chắn?");
+                if (!confirmSwitch) return;
+                cart = []; 
+                renderCart();
+            }
+
+            currentCanteenId = id;
+            document.getElementById('canteen-title').innerText = `Thực đơn ${name}`;
+            
+            loadCanteens(); 
+            loadMenu();
+        }
+
+        // --- HÀM TẢI VÀ HIỂN THỊ MENU CHÍNH ---
+        async function loadMenu() {
+            const searchQuery = document.getElementById('search-input').value;
+            const categoryId = document.getElementById('category-filter').value;
+
+            let apiUrl = `/api/menu?canteen_id=${currentCanteenId}`;
+            if (searchQuery) apiUrl += `&search=${encodeURIComponent(searchQuery)}`;
+            if (categoryId) apiUrl += `&category_id=${categoryId}`;
+
+            const res = await fetch(apiUrl);
+            const foods = await res.json();
+            const container = document.getElementById('menu-container');
+            
+            if (foods.length === 0) {
+                container.innerHTML = '<p class="text-gray-500 col-span-3 text-center py-10">Không tìm thấy món ăn nào phù hợp.</p>';
+                return;
+            }
+
+            container.innerHTML = foods.map(f => {
+                const imgUrl = f.image_url ? f.image_url : 'https://placehold.co/400x300?text=Chua+co+anh';
+                return `
+                    <div class="border rounded-xl hover:shadow-lg transition overflow-hidden bg-white flex flex-col">
+                        <img src="${imgUrl}" alt="${f.name}" class="w-full h-40 object-cover">
+                        <div class="p-4 flex-1 flex flex-col">
+                            <span class="text-xs bg-gray-100 px-2 py-1 rounded text-gray-600 w-fit mb-2">${f.category}</span>
+                            <h3 class="font-bold text-lg text-gray-800">${f.name}</h3>
+                            <p class="text-blue-600 font-bold text-xl my-1">${f.price.toLocaleString()}đ</p>
+                            <p class="text-sm text-gray-500 mb-4">Kho: ${f.quantity} phần</p>
+                            <button onclick="addToCart(${f.id}, '${f.name}', ${f.price})" 
+                                    class="mt-auto w-full bg-gray-800 text-white font-semibold py-2 rounded-lg hover:bg-black transition">
+                                Thêm vào giỏ
+                            </button>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // --- CÁC HÀM XỬ LÝ GIỎ HÀNG ---
+        function addToCart(id, name, price) {
+            const item = cart.find(i => i.food_id === id);
+            if (item) item.quantity++;
+            else cart.push({ food_id: id, name, price, quantity: 1 });
+            renderCart();
+        }
+
+        function increaseQuantity(id) {
+            const item = cart.find(i => i.food_id === id);
+            if (item) { item.quantity++; renderCart(); }
+        }
+
+        function decreaseQuantity(id) {
+            const itemIndex = cart.findIndex(i => i.food_id === id);
+            if (itemIndex > -1) {
+                if (cart[itemIndex].quantity > 1) cart[itemIndex].quantity--;
+                else cart.splice(itemIndex, 1);
+                renderCart();
+            }
+        }
+
+        function removeFromCart(id) {
+            cart = cart.filter(i => i.food_id !== id);
+            renderCart();
+        }
+
+        function renderCart() {
+            const container = document.getElementById('cart-items');
+            if (cart.length === 0) { 
+                container.innerHTML = '<p class="text-gray-400 italic text-center py-4">Giỏ hàng đang trống</p>'; 
+                document.getElementById('total-price').innerText = '0đ';
+                return; 
+            }
+            
+            container.innerHTML = cart.map(i => `
+                <div class="flex flex-col border-b pb-3 mb-3 border-gray-100">
+                    <div class="flex justify-between items-start mb-2">
+                        <span class="font-medium text-gray-800 flex-1 pr-2">${i.name}</span>
+                        <span class="font-bold text-blue-700 whitespace-nowrap">${(i.price * i.quantity).toLocaleString()}đ</span>
+                    </div>
+                    <div class="flex justify-between items-center text-sm">
+                        <div class="flex items-center border border-gray-300 rounded overflow-hidden shadow-sm">
+                            <button onclick="decreaseQuantity(${i.food_id})" class="px-3 py-1 bg-gray-100 hover:bg-gray-200 text-gray-600 font-bold transition">-</button>
+                            <span class="px-3 py-1 bg-white font-medium w-8 text-center">${i.quantity}</span>
+                            <button onclick="increaseQuantity(${i.food_id})" class="px-3 py-1 bg-gray-100 hover:bg-gray-200 text-gray-600 font-bold transition">+</button>
+                        </div>
+                        <button onclick="removeFromCart(${i.food_id})" class="text-red-500 hover:text-red-700 font-medium px-2 py-1 rounded transition">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 inline-block -mt-1" viewBox="0 0 20 20" fill="currentColor">
+                                <path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd" />
+                            </svg> Xóa
+                        </button>
+                    </div>
+                </div>
+            `).join('');
+            
+            const total = cart.reduce((s, i) => s + (i.price * i.quantity), 0);
+            document.getElementById('total-price').innerText = total.toLocaleString() + 'đ';
+        }
+
+        async function checkout() {
+            if (cart.length === 0) return alert("Vui lòng chọn món!");
+            const res = await fetch('/api/order', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ items: cart })
+            });
+            const data = await res.json();
+            if(res.ok) {
+                alert(`Thành công! Mã nhận đồ của bạn là: ${data.order_code}`);
+                cart = []; renderCart(); loadMenu(); 
+            } else { alert(data.error); }
+        }
+
+        // Khởi động các hàm khi mở trang
+        loadCanteens();
+        loadCategoriesForCustomer();
+        loadMenu();
+    </script>
+</body>
+</html>
