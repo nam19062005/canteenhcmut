@@ -2,12 +2,15 @@
 Để chạy dự án:
 
 **Cài đặt thư viện:**
+
 `pip install flask flask-sqlalchemy`
 
 **Tạo dữ liệu mẫu:**
+
 `python seed.py`
 
 **Khởi động server:**
+
 `python app.py`
 
 **Cấu trúc Thư Mục**
