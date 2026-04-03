@@ -1,11 +1,11 @@
 
-Để chạy dự án 
-**cài đặt thư viện**
-pip install flask flask-sqlalchemy
-**tạo dữ liệu mẫu**
-python seed.py
-**khởi động server**
-python app.py
+Để chạy dự án /n
+**cài đặt thư viện**/n
+pip install flask flask-sqlalchemy/n
+**tạo dữ liệu mẫu**/n
+python seed.py/n
+**khởi động server**/n
+python app.py/n
 
 **Cấu trúc Thư Mục**
 canteenhcmut/
