@@ -1,18 +1,14 @@
 
-Để chạy dự án 
+Để chạy dự án:
 
-**cài đặt thư viện**
+**Cài đặt thư viện:**
+`pip install flask flask-sqlalchemy`
 
-pip install flask flask-sqlalchemy
+**Tạo dữ liệu mẫu:**
+`python seed.py`
 
-**tạo dữ liệu mẫu**
-
-python seed.py
-
-**khởi động server**
-
-python app.py
-
+**Khởi động server:**
+`python app.py`
 
 **Cấu trúc Thư Mục**
 canteenhcmut/
